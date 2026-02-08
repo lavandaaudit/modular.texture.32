@@ -7,7 +7,6 @@ let currentStep = 0;
 let tracks = [];
 let selectedNote = 'C3';
 let currentOctave = 3;
-// Store the actual note string or null in the sequencer grid
 let sequencerData = Array(TRACK_COUNT).fill().map(() => Array(STEP_COUNT).fill(null));
 
 // FX Chain
@@ -25,9 +24,6 @@ const distortion = new Tone.Distortion(0.2).toDestination();
 const chorus = new Tone.Chorus(4, 2.5, 0.5).start().toDestination();
 const bitcrush = new Tone.BitCrusher(8).toDestination();
 
-// Master chain for all tracks
-const masterChain = [delay, reverb, filter, distortion, chorus, bitcrush];
-
 // Initialize Audio Context on first click
 document.addEventListener('click', async () => {
     if (Tone.context.state !== 'running') {
@@ -36,9 +32,8 @@ document.addEventListener('click', async () => {
     }
 }, { once: true });
 
-// Setup Tracks with Harmonic Instruments
 function setupTracks() {
-    const SCALE = ['C2', 'G2', 'Eb3', 'G3', 'Bb3', 'C4', 'D4']; // C Minor 7th / Cinematic scale
+    const SCALE = ['C2', 'G2', 'Eb3', 'G3', 'Bb3', 'C4', 'D4'];
 
     for (let i = 0; i < TRACK_COUNT; i++) {
         let synth;
@@ -46,45 +41,43 @@ function setupTracks() {
         const volume = new Tone.Volume(-18).toDestination();
 
         switch (i) {
-            case 0: // DEEP VOID - Sub Bass Pad
+            case 0:
                 synth = new Tone.PolySynth(Tone.Synth, {
                     oscillator: { type: 'sine' },
                     envelope: { attack: 4, decay: 2, sustain: 1, release: 10 }
                 }).connect(filter);
                 break;
-            case 1: // AETHER - Soft EP/Pad
+            case 1:
                 synth = new Tone.PolySynth(Tone.MonoSynth, {
                     oscillator: { type: 'triangle' },
                     envelope: { attack: 3, decay: 1, sustain: 1, release: 8 }
                 }).connect(reverb);
                 break;
-            case 2: // CRYSTAL - FM Bells
+            case 2:
                 synth = new Tone.FMSynth({
                     harmonicity: 3.01,
                     modulationIndex: 14,
                     envelope: { attack: 0.1, decay: 4, sustain: 0.1, release: 4 }
                 }).connect(delay);
                 break;
-            case 3: // RESONANCE - String-like Pad
+            case 3:
                 synth = new Tone.PolySynth(Tone.AMSynth, {
                     envelope: { attack: 2, decay: 3, sustain: 0.5, release: 6 }
                 }).connect(chorus);
                 break;
-            case 4: // PULSE GLOW - Distorted Harmonic
+            case 4:
                 synth = new Tone.DuoSynth({
-                    vibratoAmount: 0.5,
-                    vibratoRate: 5,
-                    harmonicity: 1.5,
+                    vibratoAmount: 0.5, vibratoRate: 5, harmonicity: 1.5,
                     voice0: { oscillator: { type: 'sawtooth' }, envelope: { attack: 1.5, release: 4 } },
                     voice1: { oscillator: { type: 'sine' }, envelope: { attack: 2, release: 5 } }
                 }).connect(distortion);
                 break;
-            case 5: // CELESTIAL - High Harmonics
+            case 5:
                 synth = new Tone.PolySynth(Tone.FMSynth, {
                     envelope: { attack: 5, decay: 2, sustain: 1, release: 12 }
                 }).connect(reverb);
                 break;
-            case 6: // ORBIT - Modulated Lead
+            case 6:
                 synth = new Tone.MonoSynth({
                     oscillator: { type: 'square' },
                     envelope: { attack: 2, decay: 8, sustain: 0.2, release: 8 },
@@ -107,7 +100,6 @@ function setupTracks() {
     }
 }
 
-// Generate UI
 function createUI() {
     const grid = document.getElementById('sequencer-grid');
     grid.innerHTML = '';
@@ -119,7 +111,6 @@ function createUI() {
         const info = document.createElement('div');
         info.className = 'track-info';
 
-        // Track Name and Fader
         const nameBadge = document.createElement('div');
         nameBadge.className = 'track-name-badge';
         nameBadge.innerHTML = `<div class="track-name">${name}</div>`;
@@ -129,15 +120,12 @@ function createUI() {
         const fader = document.createElement('input');
         fader.type = 'range';
         fader.className = 'track-fader';
-        fader.min = -60;
-        fader.max = 0;
-        fader.value = -18;
+        fader.min = -60; fader.max = 0; fader.value = -18;
         fader.addEventListener('input', (e) => {
             tracks[trackIdx].volume.volume.value = e.target.value;
         });
         faderContainer.appendChild(fader);
 
-        // 4 Modulation Knobs
         const paramsGrid = document.createElement('div');
         paramsGrid.className = 'track-params-grid';
         for (let k = 0; k < 4; k++) {
@@ -151,47 +139,20 @@ function createUI() {
             const onMouseMove = (e) => {
                 const diff = startY - e.clientY;
                 const sensitivity = 0.01;
-                const track = tracks[trackIdx];
-                const synth = track.instrument;
+                const synth = tracks[trackIdx].instrument;
 
-                let newAttack, newDecay, newSustain, newRelease;
-
+                let val;
                 if (synth.envelope) {
-                    newAttack = synth.envelope.attack;
-                    newDecay = synth.envelope.decay;
-                    newSustain = synth.envelope.sustain;
-                    newRelease = synth.envelope.release;
-
-                    if (k === 0) newAttack = Math.max(0.01, newAttack + diff * sensitivity);
-                    if (k === 1) newDecay = Math.max(0.01, newDecay + diff * sensitivity);
-                    if (k === 2) newSustain = Math.min(1, Math.max(0, newSustain + diff * sensitivity));
-                    if (k === 3) newRelease = Math.max(0.01, newRelease + diff * sensitivity);
-
-                    synth.envelope.attack = newAttack;
-                    synth.envelope.decay = newDecay;
-                    synth.envelope.sustain = newSustain;
-                    synth.envelope.release = newRelease;
-
+                    if (k === 0) synth.envelope.attack = Math.max(0.01, synth.envelope.attack + diff * sensitivity);
+                    if (k === 1) synth.envelope.decay = Math.max(0.01, synth.envelope.decay + diff * sensitivity);
+                    if (k === 2) synth.envelope.sustain = Math.min(1, Math.max(0, synth.envelope.sustain + diff * sensitivity));
+                    if (k === 3) synth.envelope.release = Math.max(0.01, synth.envelope.release + diff * sensitivity);
                 } else if (synth instanceof Tone.PolySynth) {
-                    const currentEnvelope = synth.get().envelope;
-                    newAttack = currentEnvelope.attack;
-                    newDecay = currentEnvelope.decay;
-                    newSustain = currentEnvelope.sustain;
-                    newRelease = currentEnvelope.release;
-
-                    if (k === 0) newAttack = Math.max(0.01, newAttack + diff * sensitivity);
-                    if (k === 1) newDecay = Math.max(0.01, newDecay + diff * sensitivity);
-                    if (k === 2) newSustain = Math.min(1, Math.max(0, newSustain + diff * sensitivity));
-                    if (k === 3) newRelease = Math.max(0.01, newRelease + diff * sensitivity);
-
-                    synth.set({
-                        envelope: {
-                            attack: newAttack,
-                            decay: newDecay,
-                            sustain: newSustain,
-                            release: newRelease
-                        }
-                    });
+                    const env = synth.get().envelope;
+                    if (k === 0) synth.set({ envelope: { attack: Math.max(0.01, env.attack + diff * sensitivity) } });
+                    if (k === 1) synth.set({ envelope: { decay: Math.max(0.01, env.decay + diff * sensitivity) } });
+                    if (k === 2) synth.set({ envelope: { sustain: Math.min(1, Math.max(0, env.sustain + diff * sensitivity)) } });
+                    if (k === 3) synth.set({ envelope: { release: Math.max(0.01, env.release + diff * sensitivity) } });
                 }
 
                 currentRotation += diff * 0.5;
@@ -225,7 +186,6 @@ function createUI() {
             step.className = 'step';
             step.dataset.track = trackIdx;
             step.dataset.step = stepIdx;
-
             step.addEventListener('click', () => {
                 if (sequencerData[trackIdx][stepIdx] === selectedNote) {
                     sequencerData[trackIdx][stepIdx] = null;
@@ -237,7 +197,6 @@ function createUI() {
                     step.textContent = selectedNote.replace(/[0-9]/, '');
                 }
             });
-
             stepGrid.appendChild(step);
         }
 
@@ -258,23 +217,16 @@ function updateKeyboard() {
         const key = document.createElement('div');
         key.className = `key ${note.includes('#') ? 'black' : 'white'} ${note === selectedNote ? 'selected' : ''}`;
         key.dataset.note = note;
-
         key.addEventListener('mousedown', () => {
             selectedNote = note;
             document.querySelectorAll('.key').forEach(k => k.classList.remove('selected'));
             key.classList.add('selected');
-            playTestNote(note);
+            tracks[1].instrument.triggerAttackRelease(note, "4n");
         });
-
         kb.appendChild(key);
     });
 }
 
-function playTestNote(note) {
-    tracks[1].instrument.triggerAttackRelease(note, "4n");
-}
-
-// Sequencer Loop
 function repeat(time) {
     const step = currentStep % STEP_COUNT;
     const allSteps = document.querySelectorAll('.step');
@@ -287,7 +239,6 @@ function repeat(time) {
         if (activeNote) {
             const track = tracks[i];
             let duration = "2n";
-
             if (track.instrument.triggerAttackRelease) {
                 track.instrument.triggerAttackRelease(activeNote, duration, time);
             } else if (track.instrument.triggerAttack) {
@@ -299,18 +250,15 @@ function repeat(time) {
     currentStep++;
 }
 
-// Controls
 function setupControls() {
     const playBtn = document.getElementById('play-btn');
     const stopBtn = document.getElementById('stop-btn');
     const clearBtn = document.getElementById('clear-btn');
-
     const bpmKnob = document.getElementById('bpm-knob');
     const bpmDisplay = document.getElementById('bpm-display');
     const volKnob = document.getElementById('master-vol-knob');
     const volDisplay = document.getElementById('vol-display');
 
-    // BPM Knob
     let startY_bpm, currentBPM = 120;
     bpmKnob.addEventListener('mousedown', (e) => {
         startY_bpm = e.clientY;
@@ -330,7 +278,6 @@ function setupControls() {
         document.addEventListener('mouseup', onMouseUp);
     });
 
-    // Vol Knob
     let startY_vol, currentVol = -12;
     volKnob.addEventListener('mousedown', (e) => {
         startY_vol = e.clientY;
@@ -351,10 +298,15 @@ function setupControls() {
     });
 
     playBtn.addEventListener('click', () => {
-        if (isPlaying) return;
-        isPlaying = true;
-        Tone.Transport.start();
-        playBtn.textContent = 'PAUSE';
+        if (isPlaying) {
+            isPlaying = false;
+            Tone.Transport.pause();
+            playBtn.textContent = 'PLAY';
+        } else {
+            isPlaying = true;
+            Tone.Transport.start();
+            playBtn.textContent = 'PAUSE';
+        }
     });
 
     stopBtn.addEventListener('click', () => {
@@ -373,7 +325,6 @@ function setupControls() {
         });
     });
 
-    // Octave
     const octUp = document.getElementById('octave-up');
     const octDown = document.getElementById('octave-down');
     const octDisplay = document.getElementById('octave-display');
@@ -394,7 +345,6 @@ function setupControls() {
         }
     });
 
-    // FX
     document.querySelectorAll('.fx-param').forEach(input => {
         input.addEventListener('input', (e) => {
             const fxType = e.target.dataset.fx;
